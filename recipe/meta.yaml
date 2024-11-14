@@ -6,7 +6,7 @@ package:
   version: {{ version }}
 
 source:
-  url: https://github.com/Congyuwang/RocksDict/archive/v{{ version }}.tar.gz
+  url: https://github.com/rocksdict/RocksDict/archive/v{{ version }}.tar.gz
   sha256: 2f5371e2b7e9aeb2b36e85ff4281607eae1eb76e5627f3b78577e1be9629520f
   patches:
     # https://github.com/rocksdict/RocksDict/compare/v0.3.24...v0.3.24-musllinux-patch
@@ -42,8 +42,8 @@ test:
     - pip
 
 about:
-  home: https://github.com/Congyuwang/RocksDict
-  doc_url: https://congyuwang.github.io/RocksDict/rocksdict.html
+  home: https://github.com/rocksdict/RocksDict
+  doc_url: https://rocksdict.github.io/RocksDict/rocksdict.html
   summary: Python fast on-disk dictionary; RocksDB & SpeeDB Python binding
   license: MIT
   license_file: LICENSE
