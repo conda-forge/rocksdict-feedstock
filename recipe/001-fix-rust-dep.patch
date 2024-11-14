@@ -1,0 +1,1170 @@
+diff --git a/.github/workflows/CI.yml b/.github/workflows/CI.yml
+index 85705b7..6f5597d 100644
+--- a/.github/workflows/CI.yml
++++ b/.github/workflows/CI.yml
+@@ -1,4 +1,4 @@
+-name: CI
++name: CI musl
+ 
+ on:
+   release:
+@@ -10,7 +10,8 @@ jobs:
+     strategy:
+       fail-fast: false
+       matrix:
+-        py_version: [3.7, 3.8, 3.9, "3.10", "3.11", "3.12", "3.13"]
++        py_version:
++          [3.7, 3.8, 3.9, "3.10", "3.11", "3.12", "3.13", "pypy3.9", "pypy3.10"]
+     steps:
+       - uses: actions/checkout@v2
+         with:
+@@ -39,12 +40,12 @@ jobs:
+           export CC=${HOMEBREW_PREFIX}/opt/llvm@19/bin/clang
+           export CXX=${HOMEBREW_PREFIX}/opt/llvm@19/bin/clang++
+           export AR=${HOMEBREW_PREFIX}/opt/llvm@19/bin/llvm-ar
+-          export CFLAGS="-flto=thin -O3"
+-          export CXXFLAGS="-flto=thin -O3"
++          export CFLAGS="-flto=thin -O3 --sysroot=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk"
++          export CXXFLAGS="-flto=thin -O3 --sysroot=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk"
+           export LLD=${HOMEBREW_PREFIX}/opt/lld/bin/ld64.lld
+           export RUSTFLAGS="-Clinker-plugin-lto -Clinker=$PWD/macos-linker.sh -Clink-arg=-fuse-ld=${LLD}"
+-          maturin build --release --target aarch64-apple-darwin --out dist -i python${{ matrix.py_version }}
+-          maturin build --release --target x86_64-apple-darwin --out dist -i python${{ matrix.py_version }}
++          maturin build --release --target aarch64-apple-darwin --out dist -i ${{ matrix.py_version }}
++          maturin build --release --target x86_64-apple-darwin --out dist -i ${{ matrix.py_version }}
+       - name: Install built wheel
+         run: |
+           pip install rocksdict --no-index --find-links dist --force-reinstall || true
+@@ -64,7 +65,8 @@ jobs:
+       fail-fast: false
+       matrix:
+         target: [x64]
+-        py_version: [3.7, 3.8, 3.9, "3.10", "3.11", "3.12", "3.13"]
++        py_version:
++          [3.7, 3.8, 3.9, "3.10", "3.11", "3.12", "3.13", "pypy3.9", "pypy3.10"]
+     steps:
+       - uses: actions/checkout@v2
+         with:
+@@ -107,7 +109,7 @@ jobs:
+           name: wheels-win-${{ matrix.py_version }}
+           path: dist
+ 
+-  manylinux_2_28:
++  manylinux_2_28_x86_64:
+     runs-on: ubuntu-latest
+     strategy:
+       fail-fast: false
+@@ -128,7 +130,7 @@ jobs:
+           rustup-components: rustfmt
+           target: ${{ matrix.target }}
+           manylinux: 2_28
+-          args: --release --out dist --interpreter '3.7 3.8 3.9 3.10 3.11 3.12 3.13'
++          args: --release --out dist --interpreter '3.7 3.8 3.9 3.10 3.11 3.12 3.13 pypy3.9 pypy3.10'
+           container: congyuwang/manylinux_2_28_x86_64:llvm-19.1.3
+         env:
+           LIBCLANG_PATH: /usr/local/lib
+@@ -150,7 +152,7 @@ jobs:
+           name: wheels-manylinux_2_28-${{ matrix.target }}
+           path: dist
+ 
+-  manylinux2014:
++  manylinux2014_x86_64:
+     runs-on: ubuntu-latest
+     strategy:
+       fail-fast: false
+@@ -171,7 +173,7 @@ jobs:
+           rustup-components: rustfmt
+           target: ${{ matrix.target }}
+           manylinux: 2014
+-          args: --release --out dist --interpreter '3.7 3.8 3.9 3.10 3.11 3.12 3.13'
++          args: --release --out dist --interpreter '3.7 3.8 3.9 3.10 3.11 3.12 3.13 pypy3.9 pypy3.10'
+           container: congyuwang/manylinux2014_x86_64:llvm-19.1.3
+         env:
+           LIBCLANG_PATH: /usr/local/lib
+@@ -192,8 +194,8 @@ jobs:
+           name: wheels-manylinux2014-${{ matrix.target }}
+           path: dist
+ 
+-  linux-cross:
+-    runs-on: ubuntu-latest
++  manylinux_2_28_arm64:
++    runs-on: linux-arm64
+     strategy:
+       fail-fast: false
+       matrix:
+@@ -205,6 +207,7 @@ jobs:
+       - uses: actions/setup-python@v5
+         with:
+           python-version: 3.9
++          architecture: arm64
+       - name: Build Wheels
+         uses: messense/maturin-action@v1
+         with:
+@@ -212,56 +215,179 @@ jobs:
+           rustup-components: rustfmt
+           target: ${{ matrix.target }}
+           manylinux: 2_28
+-          args: --release --out dist --interpreter '3.7 3.8 3.9 3.10 3.11 3.12 3.13'
++          args: --release --out dist --interpreter '3.7 3.8 3.9 3.10 3.11 3.12 3.13 pypy3.9 pypy3.10'
+           container: congyuwang/manylinux_2_28_aarch64:llvm-19.1.3
+-          docker-options: "-e BINDGEN_EXTRA_CLANG_ARGS"
+-          before-script-linux: |
+-            ln -s /usr/aarch64-unknown-linux-gnu/lib/gcc/aarch64-unknown-linux-gnu/7.5.0/crtbeginS.o /usr/aarch64-unknown-linux-gnu/aarch64-unknown-linux-gnu/sysroot/usr/lib/crtbeginS.o
+-            ln -s /usr/aarch64-unknown-linux-gnu/lib/gcc/aarch64-unknown-linux-gnu/7.5.0/crtendS.o /usr/aarch64-unknown-linux-gnu/aarch64-unknown-linux-gnu/sysroot/usr/lib/crtendS.o
+         env:
+           LIBCLANG_PATH: /usr/local/lib
+-          CC_aarch64_unknown_linux_gnu: /usr/local/bin/clang
+-          CXX_aarch64_unknown_linux_gnu: /usr/local/bin/clang++
+-          AR_aarch64_unknown_linux_gnu: /usr/local/bin/llvm-ar
+-          CFLAGS_aarch64_unknown_linux_gnu: >
+-            -flto=thin -O3 --sysroot=/usr/aarch64-unknown-linux-gnu/aarch64-unknown-linux-gnu/sysroot/
+-          CXXFLAGS_aarch64_unknown_linux_gnu: >
+-            -flto=thin -O3 --sysroot=/usr/aarch64-unknown-linux-gnu/aarch64-unknown-linux-gnu/sysroot/
+-            -I /usr/aarch64-unknown-linux-gnu/aarch64-unknown-linux-gnu/include/c++/7.5.0/
+-            -I /usr/aarch64-unknown-linux-gnu/aarch64-unknown-linux-gnu/include/c++/7.5.0/aarch64-unknown-linux-gnu/
+-          BINDGEN_EXTRA_CLANG_ARGS: >
+-            --sysroot=/usr/aarch64-unknown-linux-gnu/aarch64-unknown-linux-gnu/sysroot/
+-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: >
+-            /usr/local/bin/clang
+-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS: >
+-            -Clinker-plugin-lto
+-            -Clinker=/usr/local/bin/clang
+-            -Clink-arg=-fuse-ld=/usr/local/bin/ld.lld
+-            -Clink-arg=--sysroot=/usr/aarch64-unknown-linux-gnu/aarch64-unknown-linux-gnu/sysroot/
+-      - uses: uraimo/run-on-arch-action@v2
+-        name: Install built wheel and test
+-        with:
+-          arch: ${{ matrix.target }}
+-          distro: ubuntu22.04
+-          githubToken: ${{ github.token }}
+-          install: |
+-            apt-get update
+-            apt-get install -y --no-install-recommends python3 python3-pip
+-            pip3 install -U pip
+-          run: |
+-            pip3 install rocksdict --no-index --find-links dist --force-reinstall || true
+-            pip3 install speedict --no-index --find-links dist --force-reinstall || true
+-            python3 -m unittest discover -v test
++          CC: /usr/local/bin/clang
++          CXX: /usr/local/bin/clang++
++          AR: /usr/local/bin/llvm-ar
++          CFLAGS: "-flto=thin -O3"
++          CXXFLAGS: "-flto=thin -O3"
++          RUSTFLAGS: "-Clinker-plugin-lto -Clinker=/usr/local/bin/clang -Clink-arg=-fuse-ld=/usr/local/bin/ld.lld"
++      - name: Install built wheel and test
++        run: |
++          pip install rocksdict --no-index --find-links dist --force-reinstall || true
++          pip install speedict --no-index --find-links dist --force-reinstall || true
++          python -m unittest discover -v test
++      - name: Upload wheels
++        uses: actions/upload-artifact@v4
++        with:
++          name: wheels-manylinux_2_28-${{ matrix.target }}
++          path: dist
++
++  manylinux2014_arm64:
++    runs-on: linux-arm64
++    strategy:
++      fail-fast: false
++      matrix:
++        target: [aarch64]
++    steps:
++      - uses: actions/checkout@v2
++        with:
++          submodules: recursive
++      - uses: actions/setup-python@v5
++        with:
++          python-version: 3.9
++          architecture: arm64
++      - name: Build Wheels
++        uses: messense/maturin-action@v1
++        with:
++          rust-toolchain: 1.82.0
++          rustup-components: rustfmt
++          target: ${{ matrix.target }}
++          manylinux: 2014
++          args: --release --out dist --interpreter '3.7 3.8 3.9 3.10 3.11 3.12 3.13 pypy3.9 pypy3.10'
++          container: congyuwang/manylinux2014_aarch64:llvm-19.1.3
++        env:
++          LIBCLANG_PATH: /usr/local/lib
++          CC: /usr/local/bin/clang
++          CXX: /usr/local/bin/clang++
++          AR: /usr/local/bin/llvm-ar
++          CFLAGS: "-flto=thin -O3"
++          CXXFLAGS: "-flto=thin -O3"
++          RUSTFLAGS: "-Clinker-plugin-lto -Clinker=/usr/local/bin/clang -Clink-arg=-fuse-ld=/usr/local/bin/ld.lld"
++      - name: Install built wheel and test
++        run: |
++          pip install rocksdict --no-index --find-links dist --force-reinstall || true
++          pip install speedict --no-index --find-links dist --force-reinstall || true
++          python -m unittest discover -v test
+       - name: Upload wheels
+         uses: actions/upload-artifact@v4
+         with:
+-          name: wheels-linux-cross-${{ matrix.target }}
++          name: wheels-manylinux2014-${{ matrix.target }}
++          path: dist
++
++  musllinux_1_2_x86_64:
++    runs-on: ubuntu-latest
++    strategy:
++      fail-fast: false
++      matrix:
++        target: [x86_64]
++    steps:
++      - uses: actions/checkout@v2
++        with:
++          submodules: recursive
++      - name: Build Wheels
++        uses: messense/maturin-action@v1
++        with:
++          rust-toolchain: 1.82.0
++          rustup-components: rustfmt
++          target: ${{ matrix.target }}
++          manylinux: musllinux_1_2
++          args: --release --no-default-features --features bindgen-static --out dist --interpreter '3.7 3.8 3.9 3.10 3.11 3.12 3.13 pypy3.9 pypy3.10'
++          container: congyuwang/musllinux_1_2_x86_64:llvm-19.1.3
++          before-script-linux: |
++            apk update
++            apk add ncurses-static
++            apk add zlib-static
++            ln -s /usr/lib/gcc/x86_64-alpine-linux-musl/13.2.1/crtbeginS.o /usr/lib/crtbeginS.o
++            ln -s /usr/lib/gcc/x86_64-alpine-linux-musl/13.2.1/crtendS.o /usr/lib/crtendS.o
++            ln -s /usr/lib/gcc/x86_64-alpine-linux-musl/13.2.1/libgcc.a /usr/lib/libgcc.a
++        env:
++          LIBCLANG_PATH: /usr/local/lib
++          CC: /usr/local/bin/clang
++          CXX: /usr/local/bin/clang++
++          AR: /usr/local/bin/llvm-ar
++          CFLAGS: "-flto=thin -O3 -isystem/usr/include"
++          CXXFLAGS: "-flto=thin -O3 -isystem/usr/include/c++/13.2.1/ -isystem/usr/include -isystem/usr/include/c++/13.2.1/x86_64-alpine-linux-musl"
++          RUSTFLAGS: "-Clinker-plugin-lto -Clinker=/usr/local/bin/clang -Clink-arg=-fuse-ld=/usr/local/bin/ld.lld"
++          LLVM_CONFIG_PATH: /root/llvm_config.sh
++          LIBCLANG_STATIC_PATH: /usr/local/lib
++      - name: Run Tests
++        run: |
++          docker run --rm -v ${{ github.workspace }}/dist:/dist:ro -v ${{ github.workspace }}/test:/test:ro congyuwang/musllinux_1_2_x86_64:llvm-19.1.3 bash -c "
++            python3.12 -m pip install rocksdict --no-index --find-links /dist --force-reinstall || true
++            python3.12 -m pip install speedict --no-index --find-links /dist --force-reinstall || true
++            python3.12 -m unittest discover -v /test"
++      - name: Upload artifacts
++        uses: actions/upload-artifact@v4
++        with:
++          name: wheels-musllinux_1_2-x86_64
++          path: dist
++
++  musllinux_1_2_arm64:
++    runs-on: linux-arm64
++    strategy:
++      fail-fast: false
++      matrix:
++        target: [aarch64]
++    steps:
++      - uses: actions/checkout@v2
++        with:
++          submodules: recursive
++      - name: Build Wheels
++        uses: messense/maturin-action@v1
++        with:
++          rust-toolchain: 1.82.0
++          rustup-components: rustfmt
++          target: ${{ matrix.target }}
++          manylinux: musllinux_1_2
++          args: --release --no-default-features --features bindgen-static --out dist --interpreter '3.7 3.8 3.9 3.10 3.11 3.12 3.13 pypy3.9 pypy3.10'
++          container: congyuwang/musllinux_1_2_aarch64:llvm-19.1.3
++          before-script-linux: |
++            apk update
++            apk add ncurses-static
++            apk add zlib-static
++            ln -s /usr/lib/gcc/aarch64-alpine-linux-musl/13.2.1/crtbeginS.o /usr/lib/crtbeginS.o
++            ln -s /usr/lib/gcc/aarch64-alpine-linux-musl/13.2.1/crtendS.o /usr/lib/crtendS.o
++            ln -s /usr/lib/gcc/aarch64-alpine-linux-musl/13.2.1/libgcc.a /usr/lib/libgcc.a
++        env:
++          LIBCLANG_PATH: /usr/local/lib
++          CC: /usr/local/bin/clang
++          CXX: /usr/local/bin/clang++
++          AR: /usr/local/bin/llvm-ar
++          CFLAGS: "-flto=thin -O3 -isystem/usr/include"
++          CXXFLAGS: "-flto=thin -O3 -isystem/usr/include/c++/13.2.1/ -isystem/usr/include -isystem/usr/include/c++/13.2.1/aarch64-alpine-linux-musl"
++          RUSTFLAGS: "-Clinker-plugin-lto -Clinker=/usr/local/bin/clang -Clink-arg=-fuse-ld=/usr/local/bin/ld.lld"
++          LLVM_CONFIG_PATH: /root/llvm_config.sh
++          LIBCLANG_STATIC_PATH: /usr/local/lib
++      - name: Run Tests
++        run: |
++          docker run --rm -v ${{ github.workspace }}/dist:/dist:ro -v ${{ github.workspace }}/test:/test:ro congyuwang/musllinux_1_2_aarch64:llvm-19.1.3 bash -c "
++            python3.12 -m pip install rocksdict --no-index --find-links /dist --force-reinstall || true
++            python3.12 -m pip install speedict --no-index --find-links /dist --force-reinstall || true
++            python3.12 -m unittest discover -v /test"
++      - name: Upload artifacts
++        uses: actions/upload-artifact@v4
++        with:
++          name: wheels-musllinux_1_2-arm64
+           path: dist
+ 
+   release:
+     name: Release
+     runs-on: ubuntu-latest
+-    needs: [windows, manylinux_2_28, manylinux2014, macos, linux-cross]
++    needs:
++      [
++        windows,
++        macos,
++        manylinux_2_28_x86_64,
++        manylinux2014_x86_64,
++        manylinux_2_28_arm64,
++        manylinux2014_arm64,
++        musllinux_1_2_x86_64,
++        musllinux_1_2_arm64,
++      ]
+     steps:
+       - uses: actions/download-artifact@v4
+         with:
+diff --git a/.github/workflows/PR.yml b/.github/workflows/PR.yml
+index aa421e0..1d2c2d8 100644
+--- a/.github/workflows/PR.yml
++++ b/.github/workflows/PR.yml
+@@ -1,4 +1,4 @@
+-name: PR check
++name: PR check musl
+ 
+ on:
+   pull_request:
+@@ -10,7 +10,8 @@ jobs:
+     strategy:
+       fail-fast: false
+       matrix:
+-        py_version: [3.7, 3.8, 3.9, "3.10", "3.11", "3.12", "3.13"]
++        py_version:
++          [3.7, 3.8, 3.9, "3.10", "3.11", "3.12", "3.13", "pypy3.9", "pypy3.10"]
+     steps:
+       - uses: actions/checkout@v2
+         with:
+@@ -39,12 +40,12 @@ jobs:
+           export CC=${HOMEBREW_PREFIX}/opt/llvm@19/bin/clang
+           export CXX=${HOMEBREW_PREFIX}/opt/llvm@19/bin/clang++
+           export AR=${HOMEBREW_PREFIX}/opt/llvm@19/bin/llvm-ar
+-          export CFLAGS="-flto=thin -O3"
+-          export CXXFLAGS="-flto=thin -O3"
++          export CFLAGS="-flto=thin -O3 --sysroot=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk"
++          export CXXFLAGS="-flto=thin -O3 --sysroot=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk"
+           export LLD=${HOMEBREW_PREFIX}/opt/lld/bin/ld64.lld
+           export RUSTFLAGS="-Clinker-plugin-lto -Clinker=$PWD/macos-linker.sh -Clink-arg=-fuse-ld=${LLD}"
+-          maturin build --release --target aarch64-apple-darwin --out dist -i python${{ matrix.py_version }}
+-          maturin build --release --target x86_64-apple-darwin --out dist -i python${{ matrix.py_version }}
++          maturin build --release --target aarch64-apple-darwin --out dist -i ${{ matrix.py_version }}
++          maturin build --release --target x86_64-apple-darwin --out dist -i ${{ matrix.py_version }}
+       - name: Install built wheel
+         run: |
+           pip install rocksdict --no-index --find-links dist --force-reinstall || true
+@@ -64,7 +65,8 @@ jobs:
+       fail-fast: false
+       matrix:
+         target: [x64]
+-        py_version: [3.7, 3.8, 3.9, "3.10", "3.11", "3.12", "3.13"]
++        py_version:
++          [3.7, 3.8, 3.9, "3.10", "3.11", "3.12", "3.13", "pypy3.9", "pypy3.10"]
+     steps:
+       - uses: actions/checkout@v2
+         with:
+@@ -107,7 +109,7 @@ jobs:
+           name: wheels-win-${{ matrix.py_version }}
+           path: dist
+ 
+-  manylinux_2_28:
++  manylinux_2_28_x86_64:
+     runs-on: ubuntu-latest
+     strategy:
+       fail-fast: false
+@@ -128,7 +130,7 @@ jobs:
+           rustup-components: rustfmt
+           target: ${{ matrix.target }}
+           manylinux: 2_28
+-          args: --release --out dist --interpreter '3.7 3.8 3.9 3.10 3.11 3.12 3.13'
++          args: --release --out dist --interpreter '3.7 3.8 3.9 3.10 3.11 3.12 3.13 pypy3.9 pypy3.10'
+           container: congyuwang/manylinux_2_28_x86_64:llvm-19.1.3
+         env:
+           LIBCLANG_PATH: /usr/local/lib
+@@ -150,7 +152,7 @@ jobs:
+           name: wheels-manylinux_2_28-${{ matrix.target }}
+           path: dist
+ 
+-  manylinux2014:
++  manylinux2014_x86_64:
+     runs-on: ubuntu-latest
+     strategy:
+       fail-fast: false
+@@ -171,7 +173,7 @@ jobs:
+           rustup-components: rustfmt
+           target: ${{ matrix.target }}
+           manylinux: 2014
+-          args: --release --out dist --interpreter '3.7 3.8 3.9 3.10 3.11 3.12 3.13'
++          args: --release --out dist --interpreter '3.7 3.8 3.9 3.10 3.11 3.12 3.13 pypy3.9 pypy3.10'
+           container: congyuwang/manylinux2014_x86_64:llvm-19.1.3
+         env:
+           LIBCLANG_PATH: /usr/local/lib
+@@ -192,8 +194,8 @@ jobs:
+           name: wheels-manylinux2014-${{ matrix.target }}
+           path: dist
+ 
+-  linux-cross:
+-    runs-on: ubuntu-latest
++  manylinux_2_28_arm64:
++    runs-on: linux-arm64
+     strategy:
+       fail-fast: false
+       matrix:
+@@ -205,6 +207,7 @@ jobs:
+       - uses: actions/setup-python@v5
+         with:
+           python-version: 3.9
++          architecture: arm64
+       - name: Build Wheels
+         uses: messense/maturin-action@v1
+         with:
+@@ -212,48 +215,161 @@ jobs:
+           rustup-components: rustfmt
+           target: ${{ matrix.target }}
+           manylinux: 2_28
+-          args: --release --out dist --interpreter '3.7 3.8 3.9 3.10 3.11 3.12 3.13'
++          args: --release --out dist --interpreter '3.7 3.8 3.9 3.10 3.11 3.12 3.13 pypy3.9 pypy3.10'
+           container: congyuwang/manylinux_2_28_aarch64:llvm-19.1.3
+-          docker-options: "-e BINDGEN_EXTRA_CLANG_ARGS"
+-          before-script-linux: |
+-            ln -s /usr/aarch64-unknown-linux-gnu/lib/gcc/aarch64-unknown-linux-gnu/7.5.0/crtbeginS.o /usr/aarch64-unknown-linux-gnu/aarch64-unknown-linux-gnu/sysroot/usr/lib/crtbeginS.o
+-            ln -s /usr/aarch64-unknown-linux-gnu/lib/gcc/aarch64-unknown-linux-gnu/7.5.0/crtendS.o /usr/aarch64-unknown-linux-gnu/aarch64-unknown-linux-gnu/sysroot/usr/lib/crtendS.o
+         env:
+           LIBCLANG_PATH: /usr/local/lib
+-          CC_aarch64_unknown_linux_gnu: /usr/local/bin/clang
+-          CXX_aarch64_unknown_linux_gnu: /usr/local/bin/clang++
+-          AR_aarch64_unknown_linux_gnu: /usr/local/bin/llvm-ar
+-          CFLAGS_aarch64_unknown_linux_gnu: >
+-            -flto=thin -O3 --sysroot=/usr/aarch64-unknown-linux-gnu/aarch64-unknown-linux-gnu/sysroot/
+-          CXXFLAGS_aarch64_unknown_linux_gnu: >
+-            -flto=thin -O3 --sysroot=/usr/aarch64-unknown-linux-gnu/aarch64-unknown-linux-gnu/sysroot/
+-            -I /usr/aarch64-unknown-linux-gnu/aarch64-unknown-linux-gnu/include/c++/7.5.0/
+-            -I /usr/aarch64-unknown-linux-gnu/aarch64-unknown-linux-gnu/include/c++/7.5.0/aarch64-unknown-linux-gnu/
+-          BINDGEN_EXTRA_CLANG_ARGS: >
+-            --sysroot=/usr/aarch64-unknown-linux-gnu/aarch64-unknown-linux-gnu/sysroot/
+-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: >
+-            /usr/local/bin/clang
+-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS: >
+-            -Clinker-plugin-lto
+-            -Clinker=/usr/local/bin/clang
+-            -Clink-arg=-fuse-ld=/usr/local/bin/ld.lld
+-            -Clink-arg=--sysroot=/usr/aarch64-unknown-linux-gnu/aarch64-unknown-linux-gnu/sysroot/
+-      - uses: uraimo/run-on-arch-action@v2
+-        name: Install built wheel and test
+-        with:
+-          arch: ${{ matrix.target }}
+-          distro: ubuntu22.04
+-          githubToken: ${{ github.token }}
+-          install: |
+-            apt-get update
+-            apt-get install -y --no-install-recommends python3 python3-pip
+-            pip3 install -U pip
+-          run: |
+-            pip3 install rocksdict --no-index --find-links dist --force-reinstall || true
+-            pip3 install speedict --no-index --find-links dist --force-reinstall || true
+-            python3 -m unittest discover -v test
++          CC: /usr/local/bin/clang
++          CXX: /usr/local/bin/clang++
++          AR: /usr/local/bin/llvm-ar
++          CFLAGS: "-flto=thin -O3"
++          CXXFLAGS: "-flto=thin -O3"
++          RUSTFLAGS: "-Clinker-plugin-lto -Clinker=/usr/local/bin/clang -Clink-arg=-fuse-ld=/usr/local/bin/ld.lld"
++      - name: Install built wheel and test
++        run: |
++          pip install rocksdict --no-index --find-links dist --force-reinstall || true
++          pip install speedict --no-index --find-links dist --force-reinstall || true
++          python -m unittest discover -v test
++      - name: Upload wheels
++        uses: actions/upload-artifact@v4
++        with:
++          name: wheels-manylinux_2_28-${{ matrix.target }}
++          path: dist
++
++  manylinux2014_arm64:
++    runs-on: linux-arm64
++    strategy:
++      fail-fast: false
++      matrix:
++        target: [aarch64]
++    steps:
++      - uses: actions/checkout@v2
++        with:
++          submodules: recursive
++      - uses: actions/setup-python@v5
++        with:
++          python-version: 3.9
++          architecture: arm64
++      - name: Build Wheels
++        uses: messense/maturin-action@v1
++        with:
++          rust-toolchain: 1.82.0
++          rustup-components: rustfmt
++          target: ${{ matrix.target }}
++          manylinux: 2014
++          args: --release --out dist --interpreter '3.7 3.8 3.9 3.10 3.11 3.12 3.13 pypy3.9 pypy3.10'
++          container: congyuwang/manylinux2014_aarch64:llvm-19.1.3
++        env:
++          LIBCLANG_PATH: /usr/local/lib
++          CC: /usr/local/bin/clang
++          CXX: /usr/local/bin/clang++
++          AR: /usr/local/bin/llvm-ar
++          CFLAGS: "-flto=thin -O3"
++          CXXFLAGS: "-flto=thin -O3"
++          RUSTFLAGS: "-Clinker-plugin-lto -Clinker=/usr/local/bin/clang -Clink-arg=-fuse-ld=/usr/local/bin/ld.lld"
++      - name: Install built wheel and test
++        run: |
++          pip install rocksdict --no-index --find-links dist --force-reinstall || true
++          pip install speedict --no-index --find-links dist --force-reinstall || true
++          python -m unittest discover -v test
+       - name: Upload wheels
+         uses: actions/upload-artifact@v4
+         with:
+-          name: wheels-linux-cross-${{ matrix.target }}
++          name: wheels-manylinux2014-${{ matrix.target }}
++          path: dist
++
++  musllinux_1_2_x86_64:
++    runs-on: ubuntu-latest
++    strategy:
++      fail-fast: false
++      matrix:
++        target: [x86_64]
++    steps:
++      - uses: actions/checkout@v2
++        with:
++          submodules: recursive
++      - name: Build Wheels
++        uses: messense/maturin-action@v1
++        with:
++          rust-toolchain: 1.82.0
++          rustup-components: rustfmt
++          target: ${{ matrix.target }}
++          manylinux: musllinux_1_2
++          args: --release --no-default-features --features bindgen-static --out dist --interpreter '3.7 3.8 3.9 3.10 3.11 3.12 3.13 pypy3.9 pypy3.10'
++          container: congyuwang/musllinux_1_2_x86_64:llvm-19.1.3
++          before-script-linux: |
++            apk update
++            apk add ncurses-static
++            apk add zlib-static
++            ln -s /usr/lib/gcc/x86_64-alpine-linux-musl/13.2.1/crtbeginS.o /usr/lib/crtbeginS.o
++            ln -s /usr/lib/gcc/x86_64-alpine-linux-musl/13.2.1/crtendS.o /usr/lib/crtendS.o
++            ln -s /usr/lib/gcc/x86_64-alpine-linux-musl/13.2.1/libgcc.a /usr/lib/libgcc.a
++        env:
++          LIBCLANG_PATH: /usr/local/lib
++          CC: /usr/local/bin/clang
++          CXX: /usr/local/bin/clang++
++          AR: /usr/local/bin/llvm-ar
++          CFLAGS: "-flto=thin -O3 -isystem/usr/include"
++          CXXFLAGS: "-flto=thin -O3 -isystem/usr/include/c++/13.2.1/ -isystem/usr/include -isystem/usr/include/c++/13.2.1/x86_64-alpine-linux-musl"
++          RUSTFLAGS: "-Clinker-plugin-lto -Clinker=/usr/local/bin/clang -Clink-arg=-fuse-ld=/usr/local/bin/ld.lld"
++          LLVM_CONFIG_PATH: /root/llvm_config.sh
++          LIBCLANG_STATIC_PATH: /usr/local/lib
++      - name: Run Tests
++        run: |
++          docker run --rm -v ${{ github.workspace }}/dist:/dist:ro -v ${{ github.workspace }}/test:/test:ro congyuwang/musllinux_1_2_x86_64:llvm-19.1.3 bash -c "
++            python3.12 -m pip install rocksdict --no-index --find-links /dist --force-reinstall || true
++            python3.12 -m pip install speedict --no-index --find-links /dist --force-reinstall || true
++            python3.12 -m unittest discover -v /test"
++      - name: Upload artifacts
++        uses: actions/upload-artifact@v4
++        with:
++          name: wheels-musllinux_1_2-x86_64
++          path: dist
++
++  musllinux_1_2_arm64:
++    runs-on: linux-arm64
++    strategy:
++      fail-fast: false
++      matrix:
++        target: [aarch64]
++    steps:
++      - uses: actions/checkout@v2
++        with:
++          submodules: recursive
++      - name: Build Wheels
++        uses: messense/maturin-action@v1
++        with:
++          rust-toolchain: 1.82.0
++          rustup-components: rustfmt
++          target: ${{ matrix.target }}
++          manylinux: musllinux_1_2
++          args: --release --no-default-features --features bindgen-static --out dist --interpreter '3.7 3.8 3.9 3.10 3.11 3.12 3.13 pypy3.9 pypy3.10'
++          container: congyuwang/musllinux_1_2_aarch64:llvm-19.1.3
++          before-script-linux: |
++            apk update
++            apk add ncurses-static
++            apk add zlib-static
++            ln -s /usr/lib/gcc/aarch64-alpine-linux-musl/13.2.1/crtbeginS.o /usr/lib/crtbeginS.o
++            ln -s /usr/lib/gcc/aarch64-alpine-linux-musl/13.2.1/crtendS.o /usr/lib/crtendS.o
++            ln -s /usr/lib/gcc/aarch64-alpine-linux-musl/13.2.1/libgcc.a /usr/lib/libgcc.a
++        env:
++          LIBCLANG_PATH: /usr/local/lib
++          CC: /usr/local/bin/clang
++          CXX: /usr/local/bin/clang++
++          AR: /usr/local/bin/llvm-ar
++          CFLAGS: "-flto=thin -O3 -isystem/usr/include"
++          CXXFLAGS: "-flto=thin -O3 -isystem/usr/include/c++/13.2.1/ -isystem/usr/include -isystem/usr/include/c++/13.2.1/aarch64-alpine-linux-musl"
++          RUSTFLAGS: "-Clinker-plugin-lto -Clinker=/usr/local/bin/clang -Clink-arg=-fuse-ld=/usr/local/bin/ld.lld"
++          LLVM_CONFIG_PATH: /root/llvm_config.sh
++          LIBCLANG_STATIC_PATH: /usr/local/lib
++      - name: Run Tests
++        run: |
++          docker run --rm -v ${{ github.workspace }}/dist:/dist:ro -v ${{ github.workspace }}/test:/test:ro congyuwang/musllinux_1_2_aarch64:llvm-19.1.3 bash -c "
++            python3.12 -m pip install rocksdict --no-index --find-links /dist --force-reinstall || true
++            python3.12 -m pip install speedict --no-index --find-links /dist --force-reinstall || true
++            python3.12 -m unittest discover -v /test"
++      - name: Upload artifacts
++        uses: actions/upload-artifact@v4
++        with:
++          name: wheels-musllinux_1_2-arm64
+           path: dist
+diff --git a/Cargo.toml b/Cargo.toml
+index b423878..cbdf4e3 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -16,13 +16,24 @@ path = "bin/create-cf-db/main.rs"
+ test = false
+ 
+ [dependencies]
+-rocksdb = { path = "rust-rocksdb" }
+-librocksdb-sys = { path = "rust-rocksdb/librocksdb-sys" }
++rocksdb = { path = "rust-rocksdb", default-features = false, features = [
++    "snappy",
++    "lz4",
++    "zstd",
++    "zlib",
++    "bzip2",
++] }
++librocksdb-sys = { path = "rust-rocksdb/librocksdb-sys", default-features = false }
+ serde = { version = "1", features = ["derive"] }
+ serde_json = "1"
+ num-bigint = "0.4"
+ libc = "0.2"
+ 
++[features]
++default = ["bindgen-runtime"]
++bindgen-runtime = ["rocksdb/bindgen-runtime"]
++bindgen-static = ["rocksdb/bindgen-static"]
++
+ [dependencies.pyo3]
+ version = "0.22"
+ features = ["py-clone", "extension-module", "num-bigint"]
+diff --git a/examples/README.md b/examples/README.md
+new file mode 100644
+index 0000000..9e85c0a
+--- /dev/null
++++ b/examples/README.md
+@@ -0,0 +1,6 @@
++# Examples
++
++The examples all work on CPython.
++
++For PyPy, take care about reference counting and garbage collection
++to ensure that database is released before reopening or destroying.
+diff --git a/examples/batch_write_wide_columns.py b/examples/batch_write_wide_columns.py
+index abab787..2b8e8b8 100644
+--- a/examples/batch_write_wide_columns.py
++++ b/examples/batch_write_wide_columns.py
+@@ -62,5 +62,6 @@
+     ]
+ )
+ 
++test_dict.close()
+ del write_batch, it, default_cf_handle, test_dict
+ Rdict.destroy(path, opt)
+diff --git a/examples/checkpoint.py b/examples/checkpoint.py
+index 3607919..fda9a40 100644
+--- a/examples/checkpoint.py
++++ b/examples/checkpoint.py
+@@ -27,7 +27,7 @@ def run_checkpoint_example():
+         assert checkpoint_dict[i] == i * i
+ 
+     checkpoint_dict.close()
+-    del test_dict
++    test_dict.close()
+ 
+     # Cleanup
+     Rdict.destroy(path, opt)
+diff --git a/examples/checkpoint_raw.py b/examples/checkpoint_raw.py
+index 7c425a8..374693f 100644
+--- a/examples/checkpoint_raw.py
++++ b/examples/checkpoint_raw.py
+@@ -28,7 +28,7 @@ def run_checkpoint_raw_example():
+         assert entity == [(b"value", bytes(i * i))]
+ 
+     checkpoint_dict.close()
+-    del test_dict
++    test_dict.close()
+ 
+     # Cleanup
+     Rdict.destroy(path, opt)
+diff --git a/examples/snapshot.py b/examples/snapshot.py
+index 32779d1..b35c96b 100644
+--- a/examples/snapshot.py
++++ b/examples/snapshot.py
+@@ -22,6 +22,7 @@
+     assert snapshot[i] == i
+ 
+ # drop the snapshot
++db.close()
+ del snapshot, db
+ 
+ Rdict.destroy("tmp")
+diff --git a/examples/sst_file_write.py b/examples/sst_file_write.py
+index 105cbc1..5425081 100644
+--- a/examples/sst_file_write.py
++++ b/examples/sst_file_write.py
+@@ -38,5 +38,5 @@
+     count += 1
+ 
+ # auto flush
+-del db
++db.close()
+ rd.Rdict.destroy("test")
+diff --git a/examples/wide_columns.py b/examples/wide_columns.py
+index edbf40a..5bc87d4 100644
+--- a/examples/wide_columns.py
++++ b/examples/wide_columns.py
+@@ -50,6 +50,6 @@
+ ]
+ assert [c for c in test_dict.columns()] == all_columns
+ 
+-del test_dict
++test_dict.close()
+ 
+ Rdict.destroy(path)
+diff --git a/examples/wide_columns_raw.py b/examples/wide_columns_raw.py
+index 6c16020..a996d25 100644
+--- a/examples/wide_columns_raw.py
++++ b/examples/wide_columns_raw.py
+@@ -50,6 +50,6 @@
+ ]
+ assert [c for c in test_dict.columns()] == all_columns
+ 
+-del test_dict
++test_dict.close()
+ 
+ Rdict.destroy(path)
+diff --git a/justfile b/justfile
+index 727bcb0..03a313e 100644
+--- a/justfile
++++ b/justfile
+@@ -8,8 +8,8 @@ develop:
+     CC=${HOMEBREW_PREFIX}/opt/llvm/bin/clang \
+     CXX=${HOMEBREW_PREFIX}/opt/llvm/bin/clang++ \
+     AR=${HOMEBREW_PREFIX}/opt/llvm/bin/llvm-ar \
+-    CFLAGS="-flto=thin -O3" \
+-    CXXFLAGS="-flto=thin -O3" \
++    CFLAGS="-flto=thin -O3 --sysroot=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk" \
++    CXXFLAGS="-flto=thin -O3 --sysroot=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk" \
+     RUSTFLAGS="-Clinker-plugin-lto -Clinker=$PWD/macos-linker.sh -Clink-arg=-fuse-ld=${HOMEBREW_PREFIX}/opt/lld/bin/ld64.lld" \
+     maturin develop --release --verbose
+ 
+@@ -20,8 +20,8 @@ build:
+     CC=${HOMEBREW_PREFIX}/opt/llvm/bin/clang \
+     CXX=${HOMEBREW_PREFIX}/opt/llvm/bin/clang++ \
+     AR=${HOMEBREW_PREFIX}/opt/llvm/bin/llvm-ar \
+-    CFLAGS="-flto=thin -O3" \
+-    CXXFLAGS="-flto=thin -O3" \
++    CFLAGS="-flto=thin -O3 --sysroot=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk" \
++    CXXFLAGS="-flto=thin -O3 --sysroot=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk" \
+     RUSTFLAGS="-Clinker-plugin-lto -Clinker=$PWD/macos-linker.sh -Clink-arg=-fuse-ld=${HOMEBREW_PREFIX}/opt/lld/bin/ld64.lld" \
+     maturin build --release --verbose
+ 
+@@ -30,7 +30,7 @@ bin:
+     CC=${HOMEBREW_PREFIX}/opt/llvm/bin/clang \
+     CXX=${HOMEBREW_PREFIX}/opt/llvm/bin/clang++ \
+     AR=${HOMEBREW_PREFIX}/opt/llvm/bin/llvm-ar \
+-    CFLAGS="-flto=thin -O3" \
+-    CXXFLAGS="-flto=thin -O3" \
++    CFLAGS="-flto=thin -O3 --config-system-dir=${HOMEBREW_PREFIX}/etc/clang" \
++    CXXFLAGS="-flto=thin -O3 --config-system-dir=${HOMEBREW_PREFIX}/etc/clang" \
+     RUSTFLAGS="-Clinker-plugin-lto -Clinker=$PWD/macos-linker.sh -Clink-arg=-fuse-ld=${HOMEBREW_PREFIX}/opt/lld/bin/ld64.lld" \
+     cargo build --release --bin create_cf_db
+diff --git a/pyproject.toml b/pyproject.toml
+index b288dd0..59e2b86 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -7,13 +7,13 @@ readme = "README.md"
+ keywords = ["rocksdb", "dbm", "dict", "key-value"]
+ 
+ classifiers = [
+-    "Programming Language :: Rust",
+-    "License :: OSI Approved :: MIT License",
++    'Programming Language :: Rust',
++    'Programming Language :: Python',
++    'License :: OSI Approved :: MIT License',
+     'Operating System :: MacOS :: MacOS X',
+     'Operating System :: Microsoft :: Windows',
+     'Operating System :: POSIX :: Linux',
+     'Topic :: Database',
+-    'Topic :: Software Development :: Embedded Systems',
+     'Programming Language :: Python :: 3.7',
+     'Programming Language :: Python :: 3.8',
+     'Programming Language :: Python :: 3.9',
+@@ -21,6 +21,9 @@ classifiers = [
+     'Programming Language :: Python :: 3.11',
+     'Programming Language :: Python :: 3.12',
+     'Programming Language :: Python :: 3.13',
++    'Programming Language :: Python :: Implementation :: CPython',
++    'Programming Language :: Python :: Implementation :: PyPy',
++    'Development Status :: 5 - Production/Stable',
+ ]
+ 
+ [build-system]
+diff --git a/rust-rocksdb b/rust-rocksdb
+index e798ad5..a5a5b7c 160000
+--- a/rust-rocksdb
++++ b/rust-rocksdb
+@@ -1 +1 @@
+-Subproject commit e798ad565a7f7fa8acaeaef8f93dce5c967458e4
++Subproject commit a5a5b7c93007bdd08fae0d7298fcf1770ec3a371
+diff --git a/test/test_rdict.py b/test/test_rdict.py
+index 41a68b2..96fa1f3 100644
+--- a/test/test_rdict.py
++++ b/test/test_rdict.py
+@@ -1,5 +1,4 @@
+ import unittest
+-from sys import getrefcount
+ from rocksdict import (
+     AccessType,
+     Rdict,
+@@ -13,7 +12,9 @@
+ )
+ from random import randint, random, getrandbits
+ import os
++import gc
+ import sys
++import platform
+ from json import loads, dumps
+ from subprocess import Popen
+ 
+@@ -43,6 +44,7 @@ def setUpClass(cls) -> None:
+         cls.test_dict["a"] = "a"
+         cls.test_dict[123] = 123
+ 
++    @unittest.skipIf(platform.python_implementation() == "PyPy", reason="sys.getrefcount() not available in PyPy")
+     def testGetItem(self):
+         assert self.test_dict is not None
+         self.assertEqual(self.test_dict["a"], "a")
+@@ -62,7 +64,9 @@ def testDelItem(self):
+ 
+     @classmethod
+     def tearDownClass(cls):
+-        del cls.test_dict
++        assert cls.test_dict is not None
++        cls.test_dict.close()
++        gc.collect()
+         Rdict.destroy(cls.path, Options())
+ 
+ 
+@@ -102,7 +106,9 @@ def testDelItem(self):
+ 
+     @classmethod
+     def tearDownClass(cls):
+-        del cls.test_dict
++        assert cls.test_dict is not None
++        cls.test_dict.close()
++        gc.collect()
+         Rdict.destroy(cls.path, Options())
+ 
+ 
+@@ -183,7 +189,9 @@ def test_seek_backward(self):
+ 
+     @classmethod
+     def tearDownClass(cls):
+-        del cls.test_dict
++        assert cls.test_dict is not None
++        cls.test_dict.close()
++        gc.collect()
+         Rdict.destroy(cls.path, Options())
+ 
+ 
+@@ -244,7 +252,9 @@ def test_seek_backward_key(self):
+ 
+     @classmethod
+     def tearDownClass(cls):
+-        del cls.test_dict
++        assert cls.test_dict is not None
++        cls.test_dict.close()
++        gc.collect()
+         Rdict.destroy(cls.path, Options())
+ 
+ 
+@@ -302,6 +312,7 @@ def test_reopen(self):
+ 
+         self.assertRaises(DbClosedError, lambda: self.test_dict.get(1) if self.test_dict is not None else None)
+ 
++        gc.collect()
+         test_dict = Rdict(self.path, self.opt)
+         compare_dicts(self, self.ref_dict, test_dict)
+ 
+@@ -317,6 +328,7 @@ def test_get_batch(self):
+     @classmethod
+     def tearDownClass(cls):
+         assert cls.opt is not None
++        gc.collect()
+         Rdict.destroy(cls.path, cls.opt)
+ 
+ 
+@@ -349,8 +361,10 @@ def test_big_int(self):
+ 
+     @classmethod
+     def tearDownClass(cls):
+-        del cls.test_dict
++        assert cls.test_dict is not None
++        cls.test_dict.close()
+         assert cls.opt is not None
++        gc.collect()
+         Rdict.destroy(cls.path, cls.opt)
+ 
+ 
+@@ -393,6 +407,7 @@ def test_reopen(self):
+         assert self.test_dict is not None
+         assert self.ref_dict is not None
+         self.test_dict.close()
++        gc.collect()
+         test_dict = Rdict(self.path, self.opt)
+         compare_dicts(self, self.ref_dict, test_dict)
+ 
+@@ -408,6 +423,7 @@ def test_get_batch(self):
+     @classmethod
+     def tearDownClass(cls):
+         assert cls.opt is not None
++        gc.collect()
+         Rdict.destroy(cls.path, cls.opt)
+ 
+ 
+@@ -429,36 +445,38 @@ def setUpClass(cls) -> None:
+         cls.test_dict = Rdict(cls.path, cls.opt)
+         cls.ref_dict = dict()
+ 
++    @unittest.skipIf(platform.python_implementation() == "PyPy", reason="sys.getrefcount() not available in PyPy")
+     def test_add_bytes(self):
+         assert self.test_dict is not None
+         assert self.ref_dict is not None
+         for i in range(10000):
+             key = randbytes(10)
+             value = randbytes(20)
+-            self.assertEqual(getrefcount(key), 2)
+-            self.assertEqual(getrefcount(value), 2)
++            self.assertEqual(sys.getrefcount(key), 2)
++            self.assertEqual(sys.getrefcount(value), 2)
+             self.test_dict[key] = value
+             # rdict does not increase ref_count
+-            self.assertEqual(getrefcount(key), 2)
+-            self.assertEqual(getrefcount(value), 2)
++            self.assertEqual(sys.getrefcount(key), 2)
++            self.assertEqual(sys.getrefcount(value), 2)
+             self.ref_dict[key] = value
+-            self.assertEqual(getrefcount(key), 3)
+-            self.assertEqual(getrefcount(value), 3)
++            self.assertEqual(sys.getrefcount(key), 3)
++            self.assertEqual(sys.getrefcount(value), 3)
+ 
+         compare_dicts(self, self.ref_dict, self.test_dict)
+ 
++    @unittest.skipIf(platform.python_implementation() == "PyPy", reason="sys.getrefcount() not available in PyPy")
+     def test_delete_bytes(self):
+         assert self.test_dict is not None
+         assert self.ref_dict is not None
+         for i in range(5000):
+             keys = [k for k in self.ref_dict.keys()]
+             key = keys[randint(0, len(self.ref_dict) - 1)]
+-            # key + ref_dict + keys + getrefcount -> 4
+-            self.assertEqual(getrefcount(key), 4)
++            # key + ref_dict + keys + sys.getrefcount -> 4
++            self.assertEqual(sys.getrefcount(key), 4)
+             del self.test_dict[key]
+-            self.assertEqual(getrefcount(key), 4)
++            self.assertEqual(sys.getrefcount(key), 4)
+             del self.ref_dict[key]
+-            self.assertEqual(getrefcount(key), 3)
++            self.assertEqual(sys.getrefcount(key), 3)
+ 
+         compare_dicts(self, self.ref_dict, self.test_dict)
+ 
+@@ -481,6 +499,7 @@ def test_get_batch(self):
+     @classmethod
+     def tearDownClass(cls):
+         assert cls.opt is not None
++        gc.collect()
+         Rdict.destroy(cls.path, cls.opt)
+ 
+ 
+@@ -511,8 +530,10 @@ def test_string(self):
+ 
+     @classmethod
+     def tearDownClass(cls):
+-        del cls.test_dict
++        assert cls.test_dict is not None
++        cls.test_dict.close()
+         assert cls.opt is not None
++        gc.collect()
+         Rdict.destroy(cls.path, cls.opt)
+ 
+ 
+@@ -586,8 +607,10 @@ def test_put_wide_columns(self):
+ 
+     @classmethod
+     def tearDownClass(cls):
+-        del cls.test_dict
++        assert cls.test_dict is not None
++        cls.test_dict.close()
+         assert cls.opt is not None
++        gc.collect()
+         Rdict.destroy(cls.path, cls.opt)
+ 
+ 
+@@ -664,8 +687,10 @@ def test_put_wide_columns(self):
+ 
+     @classmethod
+     def tearDownClass(cls):
+-        del cls.test_dict
++        assert cls.test_dict is not None
++        cls.test_dict.close()
+         assert cls.opt is not None
++        gc.collect()
+         Rdict.destroy(cls.path, cls.opt)
+ 
+ 
+@@ -738,8 +763,10 @@ def test_put_wide_columns(self):
+ 
+     @classmethod
+     def tearDownClass(cls):
+-        del cls.test_dict
++        assert cls.test_dict is not None
++        cls.test_dict.close()
+         assert cls.opt is not None
++        gc.collect()
+         Rdict.destroy(cls.path, cls.opt)
+ 
+ 
+@@ -779,7 +806,7 @@ def test_column_families(self):
+ 
+     @classmethod
+     def tearDownClass(cls):
+-        del cls.test_dict
++        gc.collect()
+         Rdict.destroy(cls.path)
+ 
+ 
+@@ -823,7 +850,7 @@ def test_column_families_create(self):
+ 
+     @classmethod
+     def tearDownClass(cls):
+-        del cls.test_dict
++        gc.collect()
+         Rdict.destroy(cls.path)
+ 
+ 
+@@ -869,7 +896,7 @@ def test_column_families_custom_options_auto_reopen(self):
+ 
+     @classmethod
+     def tearDownClass(cls):
+-        del cls.test_dict
++        gc.collect()
+         Rdict.destroy(cls.path)
+ 
+ 
+@@ -918,7 +945,7 @@ def test_column_families_custom_options_auto_reopen(self):
+ 
+     @classmethod
+     def tearDownClass(cls):
+-        del cls.test_dict
++        gc.collect()
+         Rdict.destroy(cls.path)
+ 
+ 
+@@ -955,6 +982,7 @@ def test_column_families_custom_options_auto_reopen_override(self):
+         self.test_dict.close()
+ 
+         # reopen
++        gc.collect()
+         old_opts, old_cols = Options.load_latest(self.path)
+         old_opts.create_missing_column_families(True)
+         old_cols["bytes"] = self.plain_opts
+@@ -973,6 +1001,7 @@ def test_column_families_custom_options_auto_reopen_override(self):
+         self.test_dict.close()
+ 
+         # reopen again auto read config
++        gc.collect()
+         self.test_dict = Rdict(self.path)
+         ds = self.test_dict.get_column_family("string")
+         di = self.test_dict.get_column_family("integer")
+@@ -989,7 +1018,7 @@ def test_column_families_custom_options_auto_reopen_override(self):
+ 
+     @classmethod
+     def tearDownClass(cls):
+-        del cls.test_dict
++        gc.collect()
+         Rdict.destroy(cls.path)
+ 
+ 
+@@ -1067,6 +1096,7 @@ def test_reopen(self):
+ 
+         self.assertRaises(DbClosedError, lambda: self.secondary_dict.get(1) if self.secondary_dict is not None else None)
+ 
++        gc.collect()
+         self.secondary_dict = Rdict(
+             self.path,
+             options=self.opt,
+@@ -1076,9 +1106,12 @@ def test_reopen(self):
+ 
+     @classmethod
+     def tearDownClass(cls):
+-        del cls.test_dict
+-        del cls.secondary_dict
++        assert cls.test_dict is not None
++        assert cls.secondary_dict is not None
++        cls.test_dict.close()
++        cls.secondary_dict.close()
+         assert cls.opt is not None
++        gc.collect()
+         Rdict.destroy(cls.path, cls.opt)
+         Rdict.destroy(cls.secondary_path, cls.opt)
+ 
+@@ -1111,15 +1144,17 @@ def test_create_checkpoint(self):
+ 
+         # Verify the checkpoint data
+         for i in range(1000):
+-            self.assertIn(i, checkpoint_dict)
++            self.assertTrue(i in checkpoint_dict)
+             self.assertEqual(checkpoint_dict[i], i * i)
+ 
+         checkpoint_dict.close()
+ 
+     @classmethod
+     def tearDownClass(cls):
+-        del cls.test_dict
++        assert cls.test_dict is not None
+         assert cls.opt is not None
++        cls.test_dict.close()
++        gc.collect()
+         Rdict.destroy(cls.path, cls.opt)
+         Rdict.destroy(cls.checkpoint_path, cls.opt)
+ 
+@@ -1152,7 +1187,7 @@ def test_create_checkpoint(self):
+ 
+         # Verify the checkpoint data
+         for i in range(1000):
+-            self.assertIn(bytes(i), checkpoint_dict)
++            self.assertTrue(bytes(i) in checkpoint_dict)
+             entity = checkpoint_dict.get_entity(bytes(i))
+             self.assertEqual(entity, [(b"value", bytes(i * i))])
+ 
+@@ -1160,8 +1195,10 @@ def test_create_checkpoint(self):
+ 
+     @classmethod
+     def tearDownClass(cls):
+-        del cls.test_dict
++        assert cls.test_dict is not None
++        cls.test_dict.close()
+         assert cls.opt is not None
++        gc.collect()
+         Rdict.destroy(cls.path, cls.opt)
+         Rdict.destroy(cls.checkpoint_path, cls.opt)
+ 

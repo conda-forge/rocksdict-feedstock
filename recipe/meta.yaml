@@ -1,5 +1,5 @@
 {% set name = "rocksdict" %}
-{% set version = "0.3.23" %}
+{% set version = "0.3.24" %}
 
 package:
   name: {{ name|lower }}
@@ -7,12 +7,14 @@ package:
 
 source:
   url: https://github.com/Congyuwang/RocksDict/archive/v{{ version }}.tar.gz
-  sha256: 79441cd6668b337649027df4612382d1f28fd8cf5d41edc11e99cc8f3f5eb9cb
+  sha256: 2f5371e2b7e9aeb2b36e85ff4281607eae1eb76e5627f3b78577e1be9629520f
+  patches:
+    - 001-fix-rust-dep.patch
 
 build:
   skip: True  # [py<37]
-  script: {{ PYTHON }} -m pip install . -vv --no-deps --no-build-isolation
-  number: 1
+  script: {{ PYTHON }} -m pip install . -vv
+  number: 0
   script_env:
     - LIBCLANG_PATH=$BUILD_PREFIX/lib  # [not win]
 
