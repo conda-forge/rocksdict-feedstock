@@ -1,0 +1,31 @@
+diff --git a/Cargo.toml b/Cargo.toml
+index b423878..cbdf4e3 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -16,13 +16,24 @@ path = "bin/create-cf-db/main.rs"
+ test = false
+ 
+ [dependencies]
+-rocksdb = { path = "rust-rocksdb" }
+-librocksdb-sys = { path = "rust-rocksdb/librocksdb-sys" }
++rocksdb = { path = "rust-rocksdb", default-features = false, features = [
++    "snappy",
++    "lz4",
++    "zstd",
++    "zlib",
++    "bzip2",
++] }
++librocksdb-sys = { path = "rust-rocksdb/librocksdb-sys", default-features = false }
+ serde = { version = "1", features = ["derive"] }
+ serde_json = "1"
+ num-bigint = "0.4"
+ libc = "0.2"
+ 
++[features]
++default = ["bindgen-runtime"]
++bindgen-runtime = ["rocksdb/bindgen-runtime"]
++bindgen-static = ["rocksdb/bindgen-static"]
++
+ [dependencies.pyo3]
+ version = "0.22"
+ features = ["py-clone", "extension-module", "num-bigint"]
