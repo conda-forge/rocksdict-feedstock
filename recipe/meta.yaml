@@ -9,6 +9,7 @@ source:
   url: https://github.com/Congyuwang/RocksDict/archive/v{{ version }}.tar.gz
   sha256: 2f5371e2b7e9aeb2b36e85ff4281607eae1eb76e5627f3b78577e1be9629520f
   patches:
+    # https://github.com/rocksdict/RocksDict/compare/v0.3.24...v0.3.24-musllinux-patch
     - 001-fix-rust-dep.patch
 
 build:
