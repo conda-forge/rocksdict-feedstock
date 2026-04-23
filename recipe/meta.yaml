@@ -1,5 +1,5 @@
 {% set name = "rocksdict" %}
-{% set version = "0.3.23" %}
+{% set version = "0.3.25" %}
 
 package:
   name: {{ name|lower }}
@@ -7,12 +7,12 @@ package:
 
 source:
   url: https://github.com/Congyuwang/RocksDict/archive/v{{ version }}.tar.gz
-  sha256: 79441cd6668b337649027df4612382d1f28fd8cf5d41edc11e99cc8f3f5eb9cb
+  sha256: ccc31f65d583818963f4e1ad42d3afd8be9e6d9f8a1f8b39cd3c3c3eb2c5627c
 
 build:
-  skip: True  # [py<37]
+  skip: true  # [py<37]
   script: {{ PYTHON }} -m pip install . -vv --no-deps --no-build-isolation
-  number: 1
+  number: 0
   script_env:
     - LIBCLANG_PATH=$BUILD_PREFIX/lib  # [not win]
 
